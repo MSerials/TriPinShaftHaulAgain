@@ -67,25 +67,23 @@ using namespace HalconCpp;
 			}
 			prj.LoadParaFile(PARA_PRJ | PARA_IO);
 
-			int quantity = d1000_board_init();
-			if (0 == quantity) return quantity;
-			d1000_set_pls_outmode(0, 0);
-			d1000_in_enable(0, 3);
-
-
 			HTuple hv_exception;
-
 			try
 			{
-				ReadShapeModel((char*)(LPCSTR)(CStringA)prj.Model_Name,&GearModel);
+				ReadShapeModel((char*)(LPCSTR)(CStringA)prj.Model_Name, &GearModel);
 			}
 			catch (HalconCpp::HException &HDevExpDefaultException)
 			{
 				HDevExpDefaultException.ToHTuple(&hv_exception);
 				GearModel = NULL;
+				AfxMessageBox(L"读取模板失败，无法进行检测");
 			}
-			
 
+
+			int quantity = d1000_board_init();
+			if (0 == quantity) return quantity;
+			d1000_set_pls_outmode(0, 0);
+			d1000_in_enable(0, 3);
 			return quantity;
 		}
 
