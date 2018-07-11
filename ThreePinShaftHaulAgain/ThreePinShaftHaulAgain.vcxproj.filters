@@ -30,6 +30,15 @@
     <ClInclude Include="Resource.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="third_party\Preferences\Preferences.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="Setting.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="_global.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ThreePinShaftHaulAgain.cpp">
@@ -39,6 +48,12 @@
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="stdafx.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="third_party\Preferences\Preferences.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="Setting.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>
@@ -54,6 +69,12 @@
   </ItemGroup>
   <ItemGroup>
     <Image Include="res\ThreePinShaftHaulAgain.ico">
+      <Filter>资源文件</Filter>
+    </Image>
+    <Image Include="GREEN.png">
+      <Filter>资源文件</Filter>
+    </Image>
+    <Image Include="RED.png">
       <Filter>资源文件</Filter>
     </Image>
   </ItemGroup>
