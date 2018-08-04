@@ -7,6 +7,7 @@
 
 #include "HalconCpp.h"
 using namespace HalconCpp;
+//#pragma comment(lib,"third_party\\halcon12\\halconcpp10.lib")
 #pragma comment(lib,"third_party\\halcon12\\halconcpp.lib")
 
 #include <iostream>
@@ -63,9 +64,9 @@ using namespace HalconCpp;
 			if (0 == prj.SetIniFile(L"PrgParameter.ini"))
 			{
 				prj.initData();
-				prj.SaveParaFile(PARA_PRJ | PARA_IO);
+				prj.SaveParaFile(-1);
 			}
-			prj.LoadParaFile(PARA_PRJ | PARA_IO);
+			prj.LoadParaFile(-1);
 
 			HTuple hv_exception;
 			try
@@ -395,9 +396,9 @@ using namespace HalconCpp;
 			}
 		}
 
-		bool CreateGearModel(HObject ho_ModelImage,HTuple Window, HTuple FileName = "GearModel.shm") {
+		bool CreateGearModel(HObject ho_ModelImage,HTuple Window, double Threshold_Val,HTuple FileName = "GearModel.shm") {
 			using namespace HalconCpp;
-			HObject  ho_ROI, ho_ImageROI, ho_ShapeModelImage;
+			HObject  ho_ROI, ho_ImageROI, ho_ShapeModelImage, ho_Thresholded, ho_Region_Bin;
 			HObject  ho_ShapeModelRegion, ho_FilledModelRegion, ho_ShapeModel;
 
 			// Local control variables
@@ -405,6 +406,7 @@ using namespace HalconCpp;
 			HTuple  hv_Height, hv_WindowHandle, hv_hv_r, hv_hv_c, hv_hv_phi;
 			HTuple  hv_hv_len1, hv_hv_len2, hv_ModelRegionRow1, hv_ModelRegionColumn1;
 			HTuple  hv_ModelRegionRow2, hv_ModelRegionColumn2, hv_exception;
+			try {
 			GetImagePointer1(ho_ModelImage, &hv_Pointer, &hv_Type, &hv_Width, &hv_Height);
 			DispObj(ho_ModelImage, Window);
 			
@@ -417,18 +419,24 @@ using namespace HalconCpp;
 				hv_WindowHandle = Window;
 			//-------------------  start of the application  ----------------
 			//step 1: create an ROI around the arrow
+#if 1
 			DrawRectangle2(hv_WindowHandle, &hv_hv_r, &hv_hv_c, &hv_hv_phi, &hv_hv_len1, &hv_hv_len2);
 			GenRectangle2(&ho_ROI, hv_hv_r, hv_hv_c, hv_hv_phi, hv_hv_len1, hv_hv_len2);
-			ReduceDomain(ho_ModelImage, ho_ROI, &ho_ImageROI);
-//			InspectShapeModel(ho_ImageROI, &ho_ShapeModelImage, &ho_ShapeModelRegion, 1, 30);
+#else
+				DrawCircle(hv_WindowHandle, &hv_hv_r, &hv_hv_c, &hv_hv_phi);
+				GenCircle(&ho_ROI, hv_hv_r, hv_hv_c, hv_hv_phi);
+#endif
 
+			Threshold(ho_ModelImage, &ho_Thresholded, Threshold_Val, 255);
+			RegionToBin(ho_Thresholded, &ho_Region_Bin, 0, 255, hv_Width, hv_Height);
+
+			ReduceDomain(ho_Region_Bin, ho_ROI, &ho_ImageROI);
+//			InspectShapeModel(ho_ImageROI, &ho_ShapeModelImage, &ho_ShapeModelRegion, 1, 30);
+			DispObj(ho_ImageROI, Window);
 			InspectShapeModel(ho_ImageROI, &ho_ShapeModelImage, &ho_ShapeModelRegion, 8, 30);
 			HTuple AreaModelRegions,RowModelRegions, ColumnModelRegions, HeightPyramid, NumLevels;
 			AreaCenter(ho_ShapeModelRegion, &AreaModelRegions, &RowModelRegions, &ColumnModelRegions);
 			CountObj(ho_ShapeModelRegion,  &HeightPyramid);
-
-
-
 
 			for (HTuple i = 1; i <= HeightPyramid; i += 1)
 			{
@@ -454,7 +462,7 @@ using namespace HalconCpp;
 
 				DispObj(ho_ROI, Window);
 			//step 4: create the final model
-			ReduceDomain(ho_ModelImage, ho_ROI, &ho_ImageROI);
+			//ReduceDomain(ho_ModelImage, ho_ROI, &ho_ImageROI);
 
 
 			//
@@ -472,10 +480,12 @@ using namespace HalconCpp;
 			}
 
 
-			try {
+		
 				
 				CreateShapeModel(ho_ImageROI, NumLevels, 0, HTuple(360).TupleRad(), "auto", "none", "use_polarity",
 					30, 10, &GearModel);
+
+				
 
 				if (GearModel.Length() > 0)
 				{
@@ -500,7 +510,97 @@ using namespace HalconCpp;
 				return true;
 		}
 
-		bool GearCheck( HObject ho_SearchImage, double hv_score_threshold, HTuple Window) {
+
+
+		bool GearCheck_ex(HObject ho_SearchImage, double hv_score_threshold, HTuple Window, bool isDisp = false) {
+			using namespace HalconCpp;
+
+			bool isOK = false;
+			// Local iconic variables
+			HObject  ho_ModelImage, ho_ROI, ho_ImageROI, ho_ShapeModelImage;
+			HObject  ho_ShapeModelRegion, ho_FilledModelRegion, ho_ShapeModel;
+			HObject  ho_ModelAtMaxPosition, ho_ModelAtNewPosition;
+			HObject  ho_Thresholded, ho_Region_Bin;
+			// Local control variables
+			HTuple  hv_FGHandle, hv_Pointer, hv_Type, hv_Width, hv_Hegiht;
+			HTuple  hv_Height, hv_ModelRegionRow1;
+			HTuple  hv_ModelRegionColumn1, hv_ModelRegionRow2, hv_ModelRegionColumn2;
+			HTuple  hv_WindowHandleZoom;
+			HTuple  hv_i, hv_MaxScore, hv_Row, hv_Col, hv_RowCheck;
+			HTuple  hv_ColumnCheck, hv_AngleCheck, hv_Score, hv_j, hv_MovementOfObject;
+			HTuple hv_exception;
+
+			try {
+				GetShapeModelContours(&ho_ShapeModel, GearModel, 1);
+				SetDraw(Window, "margin");
+				SetColor(Window, "yellow");
+				SetLineWidth(Window, 2);
+				hv_MaxScore = -1;
+				hv_Row = 10;
+				hv_Col = 10;
+				GenEmptyObj(&ho_ModelAtMaxPosition);
+				FindShapeModel(ho_SearchImage, GearModel, 0, HTuple(360).TupleRad(), 0.35, 3,
+
+					0, "least_squares", 0, 0.7, &hv_RowCheck, &hv_ColumnCheck, &hv_AngleCheck,
+					&hv_Score);
+				if (0 != ((hv_Score.TupleLength()) > 0))
+				{
+					{
+
+						HTuple end_val88 = (hv_Score.TupleLength()) - 1;
+						HTuple step_val88 = 1;
+						for (hv_j = 0; hv_j.Continue(end_val88, step_val88); hv_j += step_val88)
+						{
+							VectorAngleToRigid(0, 0, 0, HTuple(hv_RowCheck[hv_j]), HTuple(hv_ColumnCheck[hv_j]),
+								HTuple(hv_AngleCheck[hv_j]), &hv_MovementOfObject);
+							AffineTransContourXld(ho_ShapeModel, &ho_ModelAtNewPosition, hv_MovementOfObject);
+
+							if (0 != (hv_MaxScore < HTuple(hv_Score[hv_j])))
+							{
+								
+								hv_MaxScore = ((const HTuple&)hv_Score)[hv_j];
+								ho_ModelAtMaxPosition = ho_ModelAtNewPosition;
+								hv_Col = ((const HTuple&)hv_ColumnCheck)[hv_j];
+								hv_Row = ((const HTuple&)hv_RowCheck)[hv_j];
+								
+							}
+
+						}
+					}
+					if (0 != (0 < hv_MaxScore))
+					{
+						if (0 != (hv_score_threshold < hv_MaxScore))
+						{
+							SetColor(Window, "green");
+							isOK = true;
+						}
+						else
+						{
+							SetColor(Window, "red");
+						}
+						SetTposition(Window, hv_Row, hv_Col);
+						if (isDisp) {
+							WriteString(Window, "相似度" + (hv_MaxScore.TupleString(".5")));
+							DispObj(ho_ModelAtMaxPosition, Window);
+						}
+					}
+				}
+				else
+				{
+					SetColor(Window, "red");
+					SetTposition(Window, hv_Row, hv_Col);
+					if (isDisp) WriteString(Window, "未能找到模板");
+				}
+			}
+			catch (HalconCpp::HException &HDevExpDefaultException)
+			{
+				HDevExpDefaultException.ToHTuple(&hv_exception);
+				return false;
+			}
+			return isOK;
+		}
+
+		bool GearCheck( HObject ho_SearchImage, double hv_score_threshold, HTuple Window, double Threshold_Val = 55) {
 			using namespace HalconCpp;
 			
 			bool isOK = false;
@@ -508,9 +608,9 @@ using namespace HalconCpp;
 			HObject  ho_ModelImage, ho_ROI, ho_ImageROI, ho_ShapeModelImage;
 			HObject  ho_ShapeModelRegion, ho_FilledModelRegion, ho_ShapeModel;
 			HObject  ho_ModelAtMaxPosition, ho_ModelAtNewPosition;
-
+			HObject  ho_Thresholded, ho_Region_Bin;
 			// Local control variables
-			HTuple  hv_FGHandle, hv_Pointer, hv_Type, hv_Width;
+			HTuple  hv_FGHandle, hv_Pointer, hv_Type, hv_Width,hv_Hegiht;
 			HTuple  hv_Height, hv_ModelRegionRow1;
 			HTuple  hv_ModelRegionColumn1, hv_ModelRegionRow2, hv_ModelRegionColumn2;
 			HTuple  hv_WindowHandleZoom;
@@ -522,12 +622,83 @@ using namespace HalconCpp;
 				GetShapeModelContours(&ho_ShapeModel, GearModel, 1);
 				SetDraw(Window, "margin");
 				SetLineWidth(Window, 2);
-				disp_obj(ho_SearchImage, Window);
 				hv_MaxScore = -1;
 				hv_Row = 20;
 				hv_Col = 20;
 				GenEmptyObj(&ho_ModelAtMaxPosition);
+				
+				GetImagePointer1(ho_SearchImage, &hv_Pointer, &hv_Type, &hv_Width, &hv_Height);
+				Threshold(ho_SearchImage, &ho_Thresholded, Threshold_Val, 255);
+				RegionToBin(ho_Thresholded, &ho_Region_Bin, 0, 255, hv_Width, hv_Height);
+				disp_obj(ho_Region_Bin, Window);
+
+				isOK = GearCheck_ex(ho_Region_Bin, hv_score_threshold, Window,true);
+				//NG就返回，不继续检测，因为这个是检测正反的
+				return isOK;
+				
+				isOK = GearCheck_ex(ho_SearchImage, hv_score_threshold, Window, true);
+				return isOK;
+#if 0
+				FindShapeModel(ho_Region_Bin, GearModel, 0, HTuple(360).TupleRad(), 0.35, 3,
+					0, "least_squares", 0, 0.7, &hv_RowCheck, &hv_ColumnCheck, &hv_AngleCheck,
+					&hv_Score);
+				if (0 != ((hv_Score.TupleLength()) > 0))
+				{
+					{
+						HTuple end_val88 = (hv_Score.TupleLength()) - 1;
+						HTuple step_val88 = 1;
+						for (hv_j = 0; hv_j.Continue(end_val88, step_val88); hv_j += step_val88)
+						{
+							VectorAngleToRigid(0, 0, 0, HTuple(hv_RowCheck[hv_j]), HTuple(hv_ColumnCheck[hv_j]),
+								HTuple(hv_AngleCheck[hv_j]), &hv_MovementOfObject);
+							AffineTransContourXld(ho_ShapeModel, &ho_ModelAtNewPosition, hv_MovementOfObject);
+							if (0 != (hv_MaxScore < HTuple(hv_Score[hv_j])))
+							{
+								hv_MaxScore = ((const HTuple&)hv_Score)[hv_j];
+								ho_ModelAtMaxPosition = ho_ModelAtNewPosition;
+								hv_Col = ((const HTuple&)hv_ColumnCheck)[hv_j];
+								hv_Row = ((const HTuple&)hv_RowCheck)[hv_j];
+							}
+
+						}
+					}
+					if (0 != (0 < hv_MaxScore))
+					{
+						if (0 != (hv_score_threshold < hv_MaxScore))
+						{
+							SetColor(Window, "green");
+							//	isOK = true;
+						}
+						else
+						{
+							SetColor(Window, "red");
+							return false;
+						}
+			//			SetTposition(Window, hv_Row, hv_Col);
+			//			WriteString(Window, "相似度" + (hv_MaxScore.TupleString(".5")));
+			//			DispObj(ho_ModelAtMaxPosition, Window);
+
+					}
+					else
+					{
+						SetColor(Window, "red");
+						SetTposition(Window, hv_Row, hv_Col);
+						WriteString(Window, "未能找到模板");
+						return false;
+					}
+				}
+
+
+
+				hv_MaxScore = -1;
+				hv_Row = 20;
+				hv_Col = 20;
+				GenEmptyObj(&ho_ModelAtMaxPosition);
+#if 1
+				FindShapeModel(ho_Region_Bin, GearModel, 0, HTuple(360).TupleRad(), 0.35, 3,	
+#else
 				FindShapeModel(ho_SearchImage, GearModel, 0, HTuple(360).TupleRad(), 0.35, 3,
+#endif
 					0, "least_squares", 0, 0.7, &hv_RowCheck, &hv_ColumnCheck, &hv_AngleCheck,
 					&hv_Score);
 				if (0 != ((hv_Score.TupleLength()) > 0))
@@ -574,6 +745,7 @@ using namespace HalconCpp;
 
 
 				}
+#endif
 			}
 			catch (HalconCpp::HException &HDevExpDefaultException)
 			{
@@ -581,6 +753,7 @@ using namespace HalconCpp;
 				return false;
 			}
 				return isOK;
+
 		}
 
 

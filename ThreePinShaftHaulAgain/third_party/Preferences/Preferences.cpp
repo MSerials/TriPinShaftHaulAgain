@@ -560,6 +560,9 @@ void CPreferences::LoadParaFile(UINT item)
 			Threshold = GetValueF(L"IMAGESET", L"THRESHOLD");
 			Score_Threshold = GetValueF(L"IMAGESET", L"SCORE");
 			Snap_Delay = GetValueF(L"IMAGESET", L"SNAPDELAY");
+
+			Cyl_Out_Delay = GetValueF(L"IMAGESET", L"CYLOUTDELAY");
+			Cyl_Back_Delay = GetValueF(L"IMAGESET", L"CYLBACKDELAY");
 		}
 
 
@@ -586,11 +589,11 @@ void CPreferences::SaveParaFile(UINT item)
 
 	if(PARA_IMAGE==(mask&PARA_IMAGE))
 	{
-
 		 SetValueF(L"IMAGESET", L"THRESHOLD", Threshold);
 		 SetValueF(L"IMAGESET", L"SCORE", Score_Threshold);
 		 SetValueF(L"IMAGESET", L"SNAPDELAY", Snap_Delay);
-		
+		 SetValueF(L"IMAGESET", L"CYLOUTDELAY", Cyl_Out_Delay);
+		 SetValueF(L"IMAGESET", L"CYLBACKDELAY", Cyl_Back_Delay);		
 	}
 	if(PARA_IO==(mask&PARA_IO))
 	{

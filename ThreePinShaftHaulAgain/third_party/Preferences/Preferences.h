@@ -141,6 +141,8 @@ public:
 	double Threshold = 70.0;
 	double Score_Threshold = 0.85;
 	double Snap_Delay = 1000;
+	double Cyl_Out_Delay = 500;
+	double Cyl_Back_Delay = 500;
 	CString Model_Name = L"GearModel.shm";
 
 	//进料感应器
