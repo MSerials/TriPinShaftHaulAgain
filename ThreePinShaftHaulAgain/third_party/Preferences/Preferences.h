@@ -139,39 +139,49 @@ public:
 	void initData();
 
 	double Threshold = 70.0;
+	double Fb_Score_Threshold = 0.85;
 	double Score_Threshold = 0.85;
 	double Snap_Delay = 1000;
 	double Cyl_Out_Delay = 500;
 	double Cyl_Back_Delay = 500;
+	double Cyl_Push_To_Check_Delay = 1000;
 	CString Model_Name = L"GearModel.shm";
 
-	//进料感应器
+	//气缸上限感应器
 	int IN_SENSOR_CYL_UP = 1;
-	//出料感应器
+	//气缸下限感应器
 	int IN_SENSOR_CYL_DOWN = 2;
-
+	//启动输入
 	int IN_START = 3;
+	//暂停输入
 	int IN_PAUSE = 4;
+	//急停输入
 	int IN_STOP = 5;
 
+	//来料感应器
 	int IN_SENSOR_START = 6;
+	//推出气缸来料感应器
 	int IN_SENSOR_END = 7;
 
-	//调速电机
+	//启动灯，同时控制电机启停
 	int OUT_START= 1;			//板卡 9;
-	//拦住的
+	//暂停灯
 	int OUT_PAUSE = 2;			//板卡 10;
-
+	//急停灯
 	int OUT_STOP = 3;
-
+	//气缸
 	int OUT_CYL = 4;
 
+	//顺转
 	int OUT_MOTOR_CW = 5;
+	//反转,请勿接入
 	int OUT_MOTOR_CCW = 6;
-
-
+	//   推料气缸
+	int OUT_CYL_PUSH_OBJ_TO_CHECK = 6;
 	//光源控制
 	int OUT_LED_LIGHT = 7;
+	//排料气缸
+	int OUT_CYL_PUSH_OBJ_TO_OUTSIDE = 8;
 
 
 };

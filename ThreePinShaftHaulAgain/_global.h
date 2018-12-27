@@ -18,7 +18,11 @@ using namespace HalconCpp;
 
 #include <mutex>
 
+//背景光需要反相
+#define BEIJINGGUANG
 
+//多个气缸的版本
+#define VERSION1
 
 	//项目赶工，随便写写
 	class _global {
@@ -46,12 +50,14 @@ using namespace HalconCpp;
 			static _global  _g;
 			return &_g;
 		}
+
+#ifdef BEIJINGGUANG
+		bool isInv = true;
+#endif
 		HObject  ho_Image;
 		HTuple disp_hand = NULL;
 		void* handle = NULL;
-
 		CEvent evt_Run;
-
 		CPreferences prj;
 		int Init() {
 		
@@ -400,7 +406,7 @@ using namespace HalconCpp;
 			using namespace HalconCpp;
 			HObject  ho_ROI, ho_ImageROI, ho_ShapeModelImage, ho_Thresholded, ho_Region_Bin;
 			HObject  ho_ShapeModelRegion, ho_FilledModelRegion, ho_ShapeModel;
-
+			HObject MaxAreaRegion;
 			// Local control variables
 			HTuple  hv_FGHandle, hv_Pointer, hv_Type, hv_Width;
 			HTuple  hv_Height, hv_WindowHandle, hv_hv_r, hv_hv_c, hv_hv_phi;
@@ -419,18 +425,57 @@ using namespace HalconCpp;
 				hv_WindowHandle = Window;
 			//-------------------  start of the application  ----------------
 			//step 1: create an ROI around the arrow
-#if 1
+#if 0
 			DrawRectangle2(hv_WindowHandle, &hv_hv_r, &hv_hv_c, &hv_hv_phi, &hv_hv_len1, &hv_hv_len2);
 			GenRectangle2(&ho_ROI, hv_hv_r, hv_hv_c, hv_hv_phi, hv_hv_len1, hv_hv_len2);
 #else
+				SetTposition(hv_WindowHandle, 10, 10);
+				WriteString(hv_WindowHandle, "请画外轮廓");
 				DrawCircle(hv_WindowHandle, &hv_hv_r, &hv_hv_c, &hv_hv_phi);
 				GenCircle(&ho_ROI, hv_hv_r, hv_hv_c, hv_hv_phi);
+				SetTposition(hv_WindowHandle, 60, 10);
+				WriteString(hv_WindowHandle, "请画内轮廓");
+
+				DispObj(ho_ROI, Window);
+				HObject tmp;
+				DrawCircle(hv_WindowHandle, &hv_hv_r, &hv_hv_c, &hv_hv_phi);
+				GenCircle(&tmp, hv_hv_r, hv_hv_c, hv_hv_phi);
+				Difference(ho_ROI, tmp, &ho_ROI);
 #endif
 
-			Threshold(ho_ModelImage, &ho_Thresholded, Threshold_Val, 255);
-			RegionToBin(ho_Thresholded, &ho_Region_Bin, 0, 255, hv_Width, hv_Height);
+
+				HObject ReducedImg,ROI_Image,ho_ConnectedRegions, ho_Selected, ho_Filled, ho_ImageRegion;
+				ReduceDomain(ho_ModelImage, ho_ROI, &ReducedImg);
+
+				if (isInv)
+				{
+					Threshold(ReducedImg, &ho_Thresholded, Threshold_Val,255);
+				}
+				else
+				{
+					Threshold(ReducedImg, &ho_Thresholded, 0, Threshold_Val);
+				}
+			Connection(ho_Thresholded, &ho_ConnectedRegions);
+	
+			SelectShapeStd(ho_ConnectedRegions, &ho_Selected, "max_area", 0.6);
+			
+			FillUp(ho_Selected,&ho_Filled);
+			GetImageSize(ho_ModelImage, &hv_Width, &hv_Height);
+	
+
+			
+			RegionToBin(ho_Filled, &ho_Region_Bin, 0, 255, hv_Width, hv_Height);
+
+
+
+			//RegionToBin(ho_Thresholded, &ho_Region_Bin, 0, 255, hv_Width, hv_Height);
+			
+
 
 			ReduceDomain(ho_Region_Bin, ho_ROI, &ho_ImageROI);
+
+
+
 //			InspectShapeModel(ho_ImageROI, &ho_ShapeModelImage, &ho_ShapeModelRegion, 1, 30);
 			DispObj(ho_ImageROI, Window);
 			InspectShapeModel(ho_ImageROI, &ho_ShapeModelImage, &ho_ShapeModelRegion, 8, 30);
@@ -486,6 +531,7 @@ using namespace HalconCpp;
 					30, 10, &GearModel);
 
 				
+			//	HOperatorSet.CreateShapeModel(ho_ImageRegion, NumLevels, 0, (new HTuple(360)).TupleRad(), "auto", "none", "use_polarity", 30, "auto", out Gear_Model);
 
 				if (GearModel.Length() > 0)
 				{
@@ -512,12 +558,12 @@ using namespace HalconCpp;
 
 
 
-		bool GearCheck_ex(HObject ho_SearchImage, double hv_score_threshold, HTuple Window, bool isDisp = false) {
+		bool GearCheck_ex(HObject ho_SearchImage, double hv_score_threshold, double bin_ThresHold_Var, double hv_bin_Threshold_Score, HTuple Window, bool isDisp = false) {
 			using namespace HalconCpp;
 
 			bool isOK = false;
 			// Local iconic variables
-			HObject  ho_ModelImage, ho_ROI, ho_ImageROI, ho_ShapeModelImage;
+			HObject  ho_ModelImage, ho_ROI, ho_ImageROI, ho_ShapeModelImage, bin_Thres,bin_Region;
 			HObject  ho_ShapeModelRegion, ho_FilledModelRegion, ho_ShapeModel;
 			HObject  ho_ModelAtMaxPosition, ho_ModelAtNewPosition;
 			HObject  ho_Thresholded, ho_Region_Bin;
@@ -529,16 +575,104 @@ using namespace HalconCpp;
 			HTuple  hv_i, hv_MaxScore, hv_Row, hv_Col, hv_RowCheck;
 			HTuple  hv_ColumnCheck, hv_AngleCheck, hv_Score, hv_j, hv_MovementOfObject;
 			HTuple hv_exception;
+			HTuple W, H;
 
 			try {
 				GetShapeModelContours(&ho_ShapeModel, GearModel, 1);
-				SetDraw(Window, "margin");
+				SetDraw(Window, "fill");
 				SetColor(Window, "yellow");
 				SetLineWidth(Window, 2);
 				hv_MaxScore = -1;
 				hv_Row = 10;
 				hv_Col = 10;
 				GenEmptyObj(&ho_ModelAtMaxPosition);
+				if (isInv)
+				{
+					Threshold(ho_SearchImage, &bin_Thres,  bin_ThresHold_Var,255);
+					DispObj(bin_Thres, Window);
+				}
+				else
+				{
+					Threshold(ho_SearchImage, &bin_Thres, 0, bin_ThresHold_Var);
+					DispObj(bin_Thres, Window);
+				}
+
+				SetDraw(Window, "margin");
+				GetImageSize(ho_SearchImage, &W, &H);
+				RegionToBin(bin_Thres, &bin_Region, 0, 255, W, H);
+				
+				FindShapeModel(bin_Region, GearModel, 0, HTuple(360).TupleRad(), 0.35, 3,
+
+					0, "least_squares", 0, 0.7, &hv_RowCheck, &hv_ColumnCheck, &hv_AngleCheck,
+					&hv_Score);
+				if (0 != ((hv_Score.TupleLength()) > 0))
+				{
+					{
+
+						HTuple end_val88 = (hv_Score.TupleLength()) - 1;
+						HTuple step_val88 = 1;
+						for (hv_j = 0; hv_j.Continue(end_val88, step_val88); hv_j += step_val88)
+						{
+							VectorAngleToRigid(0, 0, 0, HTuple(hv_RowCheck[hv_j]), HTuple(hv_ColumnCheck[hv_j]),
+								HTuple(hv_AngleCheck[hv_j]), &hv_MovementOfObject);
+							AffineTransContourXld(ho_ShapeModel, &ho_ModelAtNewPosition, hv_MovementOfObject);
+
+							if (0 != (hv_MaxScore < HTuple(hv_Score[hv_j])))
+							{
+
+								hv_MaxScore = ((const HTuple&)hv_Score)[hv_j];
+								ho_ModelAtMaxPosition = ho_ModelAtNewPosition;
+								hv_Col = ((const HTuple&)hv_ColumnCheck)[hv_j];
+								hv_Row = ((const HTuple&)hv_RowCheck)[hv_j];
+
+							}
+
+						}
+					}
+					if (0 != (0 < hv_MaxScore))
+					{
+						if (0 != (hv_bin_Threshold_Score < hv_MaxScore))
+						{
+							SetColor(Window, "green");
+							isOK = true;
+						}
+						else
+						{
+							SetColor(Window, "red");
+						}
+						SetTposition(Window, 10, 10);
+						if (isDisp) {
+							WriteString(Window, "正反面相似度" + (hv_MaxScore.TupleString(".5")));
+							DispObj(ho_ModelAtMaxPosition, Window);
+						}
+						if (!isOK)
+							return isOK;
+					}
+				}
+				else
+				{
+					SetColor(Window, "red");
+					SetTposition(Window, hv_Row, hv_Col);
+					if (isDisp) WriteString(Window, "未能找到模板");
+					return false;
+				}
+
+
+				isOK = false;
+				hv_MaxScore = -1;
+				hv_Row = 10;
+				hv_Col = 10;
+				GenEmptyObj(&ho_ModelAtMaxPosition);
+
+				if (isInv)
+				{
+					InvertImage(ho_SearchImage, &ho_SearchImage);
+					//Threshold(, &bin_Thres, 0, bin_ThresHold_Var);
+				}
+
+
+
+
 				FindShapeModel(ho_SearchImage, GearModel, 0, HTuple(360).TupleRad(), 0.35, 3,
 
 					0, "least_squares", 0, 0.7, &hv_RowCheck, &hv_ColumnCheck, &hv_AngleCheck,
@@ -590,6 +724,7 @@ using namespace HalconCpp;
 					SetColor(Window, "red");
 					SetTposition(Window, hv_Row, hv_Col);
 					if (isDisp) WriteString(Window, "未能找到模板");
+					return false;
 				}
 			}
 			catch (HalconCpp::HException &HDevExpDefaultException)
@@ -601,6 +736,10 @@ using namespace HalconCpp;
 		}
 
 		bool GearCheck( HObject ho_SearchImage, double hv_score_threshold, HTuple Window, double Threshold_Val = 55) {
+			return GearCheck_ex(ho_SearchImage, hv_score_threshold, _global::GetIns()->prj.Threshold, _global::GetIns()->prj.Fb_Score_Threshold, Window, true);
+#if 0
+
+
 			using namespace HalconCpp;
 			
 			bool isOK = false;
@@ -619,6 +758,8 @@ using namespace HalconCpp;
 			HTuple hv_exception;
 
 			try {
+				//disp_obj(ho_Region_Bin, Window);
+
 				GetShapeModelContours(&ho_ShapeModel, GearModel, 1);
 				SetDraw(Window, "margin");
 				SetLineWidth(Window, 2);
@@ -626,17 +767,32 @@ using namespace HalconCpp;
 				hv_Row = 20;
 				hv_Col = 20;
 				GenEmptyObj(&ho_ModelAtMaxPosition);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 				
 				GetImagePointer1(ho_SearchImage, &hv_Pointer, &hv_Type, &hv_Width, &hv_Height);
 				Threshold(ho_SearchImage, &ho_Thresholded, Threshold_Val, 255);
 				RegionToBin(ho_Thresholded, &ho_Region_Bin, 0, 255, hv_Width, hv_Height);
 				disp_obj(ho_Region_Bin, Window);
 
-				isOK = GearCheck_ex(ho_Region_Bin, hv_score_threshold, Window,true);
+				isOK = GearCheck_ex(ho_Region_Bin, hv_score_threshold, _global::GetIns()->prj.Threshold, _global::GetIns()->prj.Fb_Score_Threshold, Window,true);
 				//NG就返回，不继续检测，因为这个是检测正反的
 				return isOK;
 				
-				isOK = GearCheck_ex(ho_SearchImage, hv_score_threshold, Window, true);
+				//isOK = GearCheck_ex(ho_SearchImage, hv_score_threshold, Window, true);
 				return isOK;
 #if 0
 				FindShapeModel(ho_Region_Bin, GearModel, 0, HTuple(360).TupleRad(), 0.35, 3,
@@ -753,6 +909,7 @@ using namespace HalconCpp;
 				return false;
 			}
 				return isOK;
+#endif
 
 		}
 
