@@ -172,12 +172,14 @@ public:
 	//气缸
 	int OUT_CYL = 4;
 
+
+
 	//顺转
 	int OUT_MOTOR_CW = 5;
 	//反转,请勿接入
 	int OUT_MOTOR_CCW = 6;
 	//   推料气缸
-	int OUT_CYL_PUSH_OBJ_TO_CHECK = 6;
+	int OUT_CYL_PUSH_OBJ_TO_CHECK = 7;
 	//光源控制
 	int OUT_LED_LIGHT = 7;
 	//排料气缸

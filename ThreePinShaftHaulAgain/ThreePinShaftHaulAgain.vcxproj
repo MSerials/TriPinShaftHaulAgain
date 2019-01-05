@@ -184,6 +184,7 @@
     </ResourceCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="csv.h" />
     <ClInclude Include="_global.h" />
     <ClInclude Include="Resource.h" />
     <ClInclude Include="Setting.h" />
@@ -194,6 +195,7 @@
     <ClInclude Include="ThreePinShaftHaulAgainDlg.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="csv.cpp" />
     <ClCompile Include="Setting.cpp" />
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>

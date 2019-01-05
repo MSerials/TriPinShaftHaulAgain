@@ -33,6 +33,9 @@ using namespace HalconCpp;
 		enum {
 			ON = 0,OFF = 1
 		};
+
+
+
 	private:
 		
 		_global() 
